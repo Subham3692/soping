@@ -38,6 +38,28 @@
         }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        select.w-full {
+            background-color: #334155;
+            border: 1px solid #475569;
+            color: #fff;
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
+        }
+        select.w-full:focus {
+            outline: none;
+            ring: 2px solid #f59e0b;
+        }
+        input.w-full, textarea.w-full {
+            background-color: #334155;
+            border: 1px solid #475569;
+            color: #fff;
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
+        }
+        input.w-full:focus, textarea.w-full:focus {
+            outline: none;
+            ring: 2px solid #f59e0b;
+        }
     </style>
 </head>
 <body class="bg-slate-900 min-h-screen flex flex-col lg:flex-row">
@@ -187,7 +209,7 @@
     </main>
 </div>
 
-<!-- MOBILE OVERLAY & SIDEBAR TOGGLE SCRIPTS -->
+<!-- MOBILE SIDEBAR SCRIPTS -->
 <script>
     function showLoader(){ document.getElementById('loader').style.display='flex'; }
     function hideLoader(){ document.getElementById('loader').style.display='none'; }
@@ -222,7 +244,7 @@
 <script type="module">
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
-import { getDatabase, ref, get, set, update, push, remove, onValue } from 'firebase/database';
+import { getDatabase, ref, get, set, update, push, remove } from 'firebase/database';
 
 const firebaseConfig = {
     apiKey: "AIzaSyBIrOovwfq96b8zeGPx51NaqcCvDkQt_tE",
@@ -241,6 +263,16 @@ const provider = new GoogleAuthProvider();
 
 let currentUser = null;
 const $ = (id) => document.getElementById(id);
+
+// ---------- GLOBAL MODAL FUNCTIONS (attached to window) ----------
+window.showModal = function(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('hidden');
+};
+window.hideModal = function(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('hidden');
+};
 
 // Auth
 const loginScreen = $('login-screen');
@@ -354,23 +386,54 @@ async function loadDashboardStats() {
         </div>`;
 }
 
-// ---------- GENERIC MODAL ----------
-function showModal(id) { document.getElementById(id).classList.remove('hidden'); }
-function hideModal(id) { document.getElementById(id).classList.add('hidden'); }
+// ---------- HELPER: Populate category dropdown ----------
+async function populateCategoryDropdown(selectEl, selectedValue = '') {
+    const snap = await get(ref(db, 'categories'));
+    let options = '<option value="">Select Category</option>';
+    if (snap.exists()) {
+        const cats = snap.val();
+        for (let [id, c] of Object.entries(cats)) {
+            const sel = id === selectedValue ? ' selected' : '';
+            options += `<option value="${id}"${sel}>${c.name}</option>`;
+        }
+    }
+    selectEl.innerHTML = options;
+}
+
+// ---------- HELPER: Populate subcategory dropdown based on category ----------
+async function populateSubcategoryDropdown(selectEl, catId = '', selectedValue = '') {
+    let options = '<option value="">Select Subcategory</option>';
+    if (catId) {
+        const snap = await get(ref(db, 'subcategories'));
+        if (snap.exists()) {
+            const subs = snap.val();
+            for (let [id, s] of Object.entries(subs)) {
+                if (s.cat_id === catId) {
+                    const sel = id === selectedValue ? ' selected' : '';
+                    options += `<option value="${id}"${sel}>${s.name}</option>`;
+                }
+            }
+        }
+    }
+    selectEl.innerHTML = options;
+}
 
 // ---------- PRODUCTS ----------
 async function loadProducts() {
     const snap = await get(ref(db,'products'));
+    const catsSnap = await get(ref(db,'categories'));
+    const cats = catsSnap.val() || {};
     const tbody = $('products-tbody');
     tbody.innerHTML = '';
     if(!snap.exists()) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-slate-400 p-4">No products</td></tr>'; return; }
     const data = snap.val();
     for(let [id, p] of Object.entries(data)) {
+        const catName = cats[p.cat_id]?.name || '-';
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-slate-700/40';
         tr.innerHTML = `
             <td class="p-4"><img src="${p.image_url || 'https://via.placeholder.com/40'}" class="w-10 h-10 rounded-lg object-cover bg-slate-600"></td>
-            <td class="p-4 text-slate-200">${p.name}</td>
+            <td class="p-4 text-slate-200">${p.name}<br><small class="text-slate-400">${catName}</small></td>
             <td class="p-4 font-bold text-slate-100">₹${parseFloat(p.price).toFixed(2)}</td>
             <td class="p-4 text-slate-300">${p.stock || 0}</td>
             <td class="p-4 text-right">
@@ -380,6 +443,7 @@ async function loadProducts() {
         tbody.appendChild(tr);
     }
 }
+
 window.editProduct = async (id) => {
     const snap = await get(ref(db, 'products/'+id));
     if(!snap.exists()) return;
@@ -388,8 +452,6 @@ window.editProduct = async (id) => {
     $('prodAction').value = 'edit';
     $('modalTitle').textContent = 'Edit Product';
     $('prodName').value = p.name || '';
-    $('prodCat').value = p.cat_id || '';
-    $('prodSubcat').value = p.subcat_id || '';
     $('prodDesc').value = p.description || '';
     $('prodPrice').value = p.price || '';
     $('prodMrp').value = p.mrp || '';
@@ -399,21 +461,39 @@ window.editProduct = async (id) => {
     $('prodImage').value = p.image_url || '';
     $('prodImage2').value = p.image2_url || '';
     $('prodImage3').value = p.image3_url || '';
-    showModal('product-modal');
+
+    // Populate category dropdown and select
+    await populateCategoryDropdown($('prodCat'), p.cat_id || '');
+    // Populate subcategory based on the category
+    await populateSubcategoryDropdown($('prodSubcat'), p.cat_id || '', p.subcat_id || '');
+
+    window.showModal('product-modal');
 };
+
 window.deleteProduct = async (id) => {
     if(!confirm('Delete this product?')) return;
     await remove(ref(db,'products/'+id));
     loadProducts();
     showToast('Product deleted');
 };
-window.openProductModal = (mode) => {
+
+window.openProductModal = async (mode) => {
     $('prodId').value = '';
     $('prodAction').value = mode;
     $('modalTitle').textContent = mode==='add'?'Add Product':'Edit Product';
-    ['prodName','prodCat','prodSubcat','prodDesc','prodPrice','prodMrp','prodOffer','prodUnit','prodStock','prodImage','prodImage2','prodImage3'].forEach(f=> $(f).value='');
-    showModal('product-modal');
+    ['prodName','prodDesc','prodPrice','prodMrp','prodOffer','prodUnit','prodStock','prodImage','prodImage2','prodImage3'].forEach(f=> $(f).value='');
+    // Populate category dropdown
+    await populateCategoryDropdown($('prodCat'), '');
+    // Reset subcategory
+    $('prodSubcat').innerHTML = '<option value="">Select Subcategory</option>';
+    window.showModal('product-modal');
 };
+
+// Listen for category change to filter subcategories
+$('prodCat').addEventListener('change', async function() {
+    const catId = this.value;
+    await populateSubcategoryDropdown($('prodSubcat'), catId, '');
+});
 
 $('product-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -421,7 +501,7 @@ $('product-form').addEventListener('submit', async (e) => {
     const action = $('prodAction').value;
     const data = {
         name: $('prodName').value,
-        cat_id: $('prodCat').value,
+        cat_id: $('prodCat').value || null,
         subcat_id: $('prodSubcat').value || null,
         description: $('prodDesc').value,
         price: parseFloat($('prodPrice').value),
@@ -438,7 +518,7 @@ $('product-form').addEventListener('submit', async (e) => {
     } else {
         await update(ref(db,'products/'+id), data);
     }
-    hideModal('product-modal');
+    window.hideModal('product-modal');
     loadProducts();
     showToast(action==='add'?'Product added':'Product updated');
 });
@@ -472,7 +552,7 @@ window.editCategory = async (id) => {
     $('catModalTitle').textContent = 'Edit Category';
     $('catName').value = c.name;
     $('catImage').value = c.image_url || '';
-    showModal('category-modal');
+    window.showModal('category-modal');
 };
 window.deleteCategory = async (id) => {
     if(!confirm('Delete this category?')) return;
@@ -486,7 +566,7 @@ window.openCategoryModal = (mode) => {
     $('catModalTitle').textContent = mode==='add'?'Add Category':'Edit Category';
     $('catName').value = '';
     $('catImage').value = '';
-    showModal('category-modal');
+    window.showModal('category-modal');
 };
 $('category-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -495,7 +575,7 @@ $('category-form').addEventListener('submit', async (e) => {
     const data = { name: $('catName').value, image_url: $('catImage').value };
     if(action==='add') await push(ref(db,'categories'), data);
     else await update(ref(db,'categories/'+id), data);
-    hideModal('category-modal');
+    window.hideModal('category-modal');
     loadCategories();
     showToast(action==='add'?'Category added':'Category updated');
 });
@@ -532,9 +612,12 @@ window.editSubcategory = async (id) => {
     $('subAction').value = 'edit';
     $('subModalTitle').textContent = 'Edit Subcategory';
     $('subName').value = s.name;
-    $('subCat').value = s.cat_id || '';
     $('subImage').value = s.image_url || '';
-    showModal('subcategory-modal');
+    // Populate category dropdown in subcategory modal
+    const catsSnap = await get(ref(db,'categories'));
+    const cats = catsSnap.val() || {};
+    $('subCat').innerHTML = '<option value="">Select Category</option>' + Object.entries(cats).map(([cid,c]) => `<option value="${cid}"${cid===s.cat_id?' selected':''}>${c.name}</option>`).join('');
+    window.showModal('subcategory-modal');
 };
 window.deleteSubcategory = async (id) => {
     if(!confirm('Delete this subcategory?')) return;
@@ -547,12 +630,11 @@ window.openSubcategoryModal = async (mode) => {
     $('subAction').value = mode;
     $('subModalTitle').textContent = mode==='add'?'Add Subcategory':'Edit Subcategory';
     $('subName').value = '';
-    $('subCat').value = '';
     $('subImage').value = '';
     const catsSnap = await get(ref(db,'categories'));
     const cats = catsSnap.val() || {};
     $('subCat').innerHTML = '<option value="">Select Category</option>' + Object.entries(cats).map(([id,c]) => `<option value="${id}">${c.name}</option>`).join('');
-    showModal('subcategory-modal');
+    window.showModal('subcategory-modal');
 };
 $('subcategory-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -561,7 +643,7 @@ $('subcategory-form').addEventListener('submit', async (e) => {
     const data = { name: $('subName').value, cat_id: $('subCat').value, image_url: $('subImage').value };
     if(action==='add') await push(ref(db,'subcategories'), data);
     else await update(ref(db,'subcategories/'+id), data);
-    hideModal('subcategory-modal');
+    window.hideModal('subcategory-modal');
     loadSubcategories();
     showToast(action==='add'?'Subcategory added':'Subcategory updated');
 });
@@ -600,9 +682,11 @@ window.editBanner = async (id) => {
     $('bannerModalTitle').textContent = 'Edit Banner';
     $('bannerTitle').value = b.title;
     $('bannerLink').value = b.link || '';
-    $('bannerCat').value = b.cat_id || '';
     $('bannerImage').value = b.image_url || '';
-    showModal('banner-modal');
+    const catsSnap = await get(ref(db,'categories'));
+    const cats = catsSnap.val() || {};
+    $('bannerCat').innerHTML = '<option value="">All Categories</option>' + Object.entries(cats).map(([cid,c]) => `<option value="${cid}"${cid===b.cat_id?' selected':''}>${c.name}</option>`).join('');
+    window.showModal('banner-modal');
 };
 window.deleteBanner = async (id) => {
     if(!confirm('Delete this banner?')) return;
@@ -616,12 +700,11 @@ window.openBannerModal = async (mode) => {
     $('bannerModalTitle').textContent = mode==='add'?'Add Banner':'Edit Banner';
     $('bannerTitle').value = '';
     $('bannerLink').value = '';
-    $('bannerCat').value = '';
     $('bannerImage').value = '';
     const catsSnap = await get(ref(db,'categories'));
     const cats = catsSnap.val() || {};
     $('bannerCat').innerHTML = '<option value="">All Categories</option>' + Object.entries(cats).map(([id,c]) => `<option value="${id}">${c.name}</option>`).join('');
-    showModal('banner-modal');
+    window.showModal('banner-modal');
 };
 $('banner-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -635,7 +718,7 @@ $('banner-form').addEventListener('submit', async (e) => {
     };
     if(action==='add') await push(ref(db,'banners'), data);
     else await update(ref(db,'banners/'+id), data);
-    hideModal('banner-modal');
+    window.hideModal('banner-modal');
     loadBanners();
     showToast(action==='add'?'Banner added':'Banner updated');
 });
@@ -710,30 +793,33 @@ if(currentUser) {
 }
 </script>
 
-<!-- Modals (invisible by default) -->
+<!-- Modals -->
 <!-- Product Modal -->
 <div id="product-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4" onclick="if(event.target===this) hideModal('product-modal')">
     <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6">
         <h3 class="text-xl font-bold text-slate-100 mb-4" id="modalTitle">Add Product</h3>
         <form id="product-form">
             <input type="hidden" id="prodAction" value="add"><input type="hidden" id="prodId">
-            <div class="mb-4"><label class="block text-sm text-slate-300">Image URL *</label><input type="url" id="prodImage" class="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white" required></div>
-            <div class="mb-4"><label class="block text-sm text-slate-300">Image 2 URL</label><input type="url" id="prodImage2" class="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white"></div>
-            <div class="mb-4"><label class="block text-sm text-slate-300">Image 3 URL</label><input type="url" id="prodImage3" class="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white"></div>
-            <div class="mb-4"><label class="block text-sm text-slate-300">Name *</label><input type="text" id="prodName" class="w-full bg-slate-700 ... text-white" required></div>
-            <div class="mb-4"><label class="block text-sm text-slate-300">Category</label><input type="text" id="prodCat" class="w-full bg-slate-700 ... text-white"></div>
-            <div class="mb-4"><label class="block text-sm text-slate-300">Subcategory</label><input type="text" id="prodSubcat" class="w-full bg-slate-700 ... text-white"></div>
-            <div class="mb-4"><label class="block text-sm text-slate-300">Description</label><textarea id="prodDesc" class="w-full bg-slate-700 ... text-white"></textarea></div>
+            <div class="mb-4"><label class="block text-sm text-slate-300 mb-1">Image URL *</label><input type="url" id="prodImage" class="w-full" required></div>
+            <div class="mb-4"><label class="block text-sm text-slate-300 mb-1">Image 2 URL</label><input type="url" id="prodImage2" class="w-full"></div>
+            <div class="mb-4"><label class="block text-sm text-slate-300 mb-1">Image 3 URL</label><input type="url" id="prodImage3" class="w-full"></div>
+            <div class="mb-4"><label class="block text-sm text-slate-300 mb-1">Name *</label><input type="text" id="prodName" class="w-full" required></div>
+            <div class="mb-4"><label class="block text-sm text-slate-300 mb-1">Category</label><select id="prodCat" class="w-full"></select></div>
+            <div class="mb-4"><label class="block text-sm text-slate-300 mb-1">Subcategory</label><select id="prodSubcat" class="w-full"></select></div>
+            <div class="mb-4"><label class="block text-sm text-slate-300 mb-1">Description</label><textarea id="prodDesc" class="w-full" rows="3"></textarea></div>
             <div class="grid grid-cols-2 gap-4 mb-4">
-                <div><label class="text-sm text-slate-300">Price *</label><input type="number" id="prodPrice" step="0.01" class="w-full bg-slate-700 ... text-white" required></div>
-                <div><label class="text-sm text-slate-300">MRP</label><input type="number" id="prodMrp" step="0.01" class="w-full bg-slate-700 ... text-white"></div>
+                <div><label class="block text-sm text-slate-300 mb-1">Price *</label><input type="number" id="prodPrice" step="0.01" class="w-full" required></div>
+                <div><label class="block text-sm text-slate-300 mb-1">MRP</label><input type="number" id="prodMrp" step="0.01" class="w-full"></div>
             </div>
             <div class="grid grid-cols-3 gap-4 mb-4">
-                <div><label class="text-sm text-slate-300">Offer %</label><input type="number" id="prodOffer" step="0.01" class="w-full bg-slate-700 ... text-white"></div>
-                <div><label class="text-sm text-slate-300">Unit</label><input type="text" id="prodUnit" class="w-full bg-slate-700 ... text-white"></div>
-                <div><label class="text-sm text-slate-300">Stock</label><input type="number" id="prodStock" class="w-full bg-slate-700 ... text-white"></div>
+                <div><label class="block text-sm text-slate-300 mb-1">Offer %</label><input type="number" id="prodOffer" step="0.01" class="w-full"></div>
+                <div><label class="block text-sm text-slate-300 mb-1">Unit</label><input type="text" id="prodUnit" class="w-full"></div>
+                <div><label class="block text-sm text-slate-300 mb-1">Stock</label><input type="number" id="prodStock" class="w-full"></div>
             </div>
-            <div class="flex justify-end gap-3"><button type="button" onclick="hideModal('product-modal')" class="px-5 py-2.5 bg-slate-700 text-slate-300 rounded-xl">Cancel</button><button type="submit" class="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-gray-900 rounded-xl font-bold">Save</button></div>
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="hideModal('product-modal')" class="px-5 py-2.5 bg-slate-700 text-slate-300 rounded-xl font-medium hover:bg-slate-600 transition-all">Cancel</button>
+                <button type="submit" class="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-gray-900 rounded-xl font-bold hover:shadow-lg transition-all">Save</button>
+            </div>
         </form>
     </div>
 </div>
@@ -744,9 +830,12 @@ if(currentUser) {
         <h3 class="text-xl font-bold text-slate-100 mb-4" id="catModalTitle">Add Category</h3>
         <form id="category-form">
             <input type="hidden" id="catAction" value="add"><input type="hidden" id="catId">
-            <div class="mb-4"><label class="block text-sm text-slate-300">Name *</label><input type="text" id="catName" class="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white" required></div>
-            <div class="mb-4"><label class="block text-sm text-slate-300">Image URL</label><input type="url" id="catImage" class="w-full bg-slate-700 ... text-white"></div>
-            <div class="flex justify-end gap-3"><button type="button" onclick="hideModal('category-modal')" class="px-5 py-2.5 bg-slate-700 text-slate-300 rounded-xl">Cancel</button><button type="submit" class="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-gray-900 rounded-xl font-bold">Save</button></div>
+            <div class="mb-4"><label class="block text-sm text-slate-300 mb-1">Name *</label><input type="text" id="catName" class="w-full" required></div>
+            <div class="mb-4"><label class="block text-sm text-slate-300 mb-1">Image URL</label><input type="url" id="catImage" class="w-full"></div>
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="hideModal('category-modal')" class="px-5 py-2.5 bg-slate-700 text-slate-300 rounded-xl font-medium hover:bg-slate-600 transition-all">Cancel</button>
+                <button type="submit" class="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-gray-900 rounded-xl font-bold hover:shadow-lg transition-all">Save</button>
+            </div>
         </form>
     </div>
 </div>
@@ -757,10 +846,13 @@ if(currentUser) {
         <h3 class="text-xl font-bold text-slate-100 mb-4" id="subModalTitle">Add Subcategory</h3>
         <form id="subcategory-form">
             <input type="hidden" id="subAction" value="add"><input type="hidden" id="subId">
-            <div class="mb-4"><label class="block text-sm text-slate-300">Category</label><select id="subCat" class="w-full bg-slate-700 ... text-white"></select></div>
-            <div class="mb-4"><label class="block text-sm text-slate-300">Name *</label><input type="text" id="subName" class="w-full bg-slate-700 ... text-white" required></div>
-            <div class="mb-4"><label class="block text-sm text-slate-300">Image URL</label><input type="url" id="subImage" class="w-full bg-slate-700 ... text-white"></div>
-            <div class="flex justify-end gap-3"><button type="button" onclick="hideModal('subcategory-modal')" class="px-5 py-2.5 bg-slate-700 text-slate-300 rounded-xl">Cancel</button><button type="submit" class="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-gray-900 rounded-xl font-bold">Save</button></div>
+            <div class="mb-4"><label class="block text-sm text-slate-300 mb-1">Category</label><select id="subCat" class="w-full"></select></div>
+            <div class="mb-4"><label class="block text-sm text-slate-300 mb-1">Name *</label><input type="text" id="subName" class="w-full" required></div>
+            <div class="mb-4"><label class="block text-sm text-slate-300 mb-1">Image URL</label><input type="url" id="subImage" class="w-full"></div>
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="hideModal('subcategory-modal')" class="px-5 py-2.5 bg-slate-700 text-slate-300 rounded-xl font-medium hover:bg-slate-600 transition-all">Cancel</button>
+                <button type="submit" class="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-gray-900 rounded-xl font-bold hover:shadow-lg transition-all">Save</button>
+            </div>
         </form>
     </div>
 </div>
@@ -771,19 +863,17 @@ if(currentUser) {
         <h3 class="text-xl font-bold text-slate-100 mb-4" id="bannerModalTitle">Add Banner</h3>
         <form id="banner-form">
             <input type="hidden" id="bannerAction" value="add"><input type="hidden" id="bannerId">
-            <div class="mb-4"><label class="block text-sm text-slate-300">Title *</label><input type="text" id="bannerTitle" class="w-full bg-slate-700 ... text-white" required></div>
-            <div class="mb-4"><label class="block text-sm text-slate-300">Link URL</label><input type="url" id="bannerLink" class="w-full bg-slate-700 ... text-white"></div>
-            <div class="mb-4"><label class="block text-sm text-slate-300">Category</label><select id="bannerCat" class="w-full bg-slate-700 ... text-white"></select></div>
-            <div class="mb-4"><label class="block text-sm text-slate-300">Image URL *</label><input type="url" id="bannerImage" class="w-full bg-slate-700 ... text-white" required></div>
-            <div class="flex justify-end gap-3"><button type="button" onclick="hideModal('banner-modal')" class="px-5 py-2.5 bg-slate-700 text-slate-300 rounded-xl">Cancel</button><button type="submit" class="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-gray-900 rounded-xl font-bold">Save</button></div>
+            <div class="mb-4"><label class="block text-sm text-slate-300 mb-1">Title *</label><input type="text" id="bannerTitle" class="w-full" required></div>
+            <div class="mb-4"><label class="block text-sm text-slate-300 mb-1">Link URL</label><input type="url" id="bannerLink" class="w-full"></div>
+            <div class="mb-4"><label class="block text-sm text-slate-300 mb-1">Category</label><select id="bannerCat" class="w-full"></select></div>
+            <div class="mb-4"><label class="block text-sm text-slate-300 mb-1">Image URL *</label><input type="url" id="bannerImage" class="w-full" required></div>
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="hideModal('banner-modal')" class="px-5 py-2.5 bg-slate-700 text-slate-300 rounded-xl font-medium hover:bg-slate-600 transition-all">Cancel</button>
+                <button type="submit" class="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-gray-900 rounded-xl font-bold hover:shadow-lg transition-all">Save</button>
+            </div>
         </form>
     </div>
 </div>
 
-<!-- Placeholder utility classes (added inline for brevity) -->
-<style>
-    .w-full.bg-slate-700 {background-color: #334155; border-color: #475569;}
-    .w-full.bg-slate-700:focus {outline: none; ring: 2px #f59e0b;}
-</style>
 </body>
 </html>
