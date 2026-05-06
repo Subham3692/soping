@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Products | UpdatesAll</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+        .font-serif { font-family: 'Playfair Display', serif; }
+        #loader {
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(12px);
+        }
+        .card-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px -15px rgba(245, 158, 11, 0.25);
+        }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .sidebar {
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .sidebar.open {
+            transform: translateX(0) !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen flex flex-col antialiased">
+
+<!-- ========== HEADER ========== -->
+<header class="bg-gray-900/80 backdrop-blur-xl border-b border-amber-500/20 shadow-2xl sticky top-0 z-30">
+    <!-- Mobile -->
+    <div class="lg:hidden">
+        <div class="px-4 py-3 grid grid-cols-3 items-center">
+            <button id="menuBtnMobile" class="text-amber-400 text-2xl active:scale-90 transition p-1 justify-self-start">
+                <i class="fas fa-bars"></i>
+            </button>
+            <a href="index.html" class="text-2xl font-serif font-black tracking-tight text-amber-300 justify-self-center">
+                Updates<span class="text-white">All</span>
+            </a>
+            <button id="searchToggleMobile" class="text-amber-400 text-2xl active:scale-90 transition p-1 justify-self-end">
+                <i class="fas fa-search"></i>
+            </button>
+        </div>
+        <div id="searchBarMobile" class="px-4 pb-3 hidden">
+            <form action="search.html" method="get" class="flex gap-2">
+                <input type="text" name="q" placeholder="Search…" id="searchInputMobile"
+                       class="flex-1 bg-gray-800 border border-amber-500/30 rounded-2xl px-5 py-3 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400">
+                <button type="submit" class="bg-gradient-to-r from-amber-500 to-yellow-500 text-gray-900 px-5 py-3 rounded-2xl font-bold active:scale-95 transition">Go</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Desktop -->
+    <div class="hidden lg:block">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between py-3 lg:py-4">
+                <a href="index.html" class="flex-shrink-0 text-2xl lg:text-3xl font-serif font-black tracking-tight text-amber-300">
+                    Updates<span class="text-white">All</span>
+                </a>
+                <div class="flex-1 max-w-xl mx-8">
+                    <form action="search.html" method="get" class="flex w-full">
+                        <input type="text" name="q" placeholder="Search products, categories…"
+                               class="flex-1 bg-gray-800 border border-amber-500/30 rounded-l-2xl px-5 py-3 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent">
+                        <button type="submit" class="bg-gradient-to-r from-amber-500 to-yellow-500 text-gray-900 px-6 rounded-r-2xl font-bold hover:shadow-lg transition active:scale-95">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </form>
+                </div>
+                <div class="flex items-center gap-4 lg:gap-6">
+                    <nav class="flex items-center gap-1 text-sm font-medium">
+                        <a href="index.html" class="px-3 py-2 rounded-xl text-gray-300 hover:text-amber-300 hover:bg-gray-800/50 transition">Home</a>
+                        <a href="category.html" class="px-3 py-2 rounded-xl text-gray-300 hover:text-amber-300 hover:bg-gray-800/50 transition">Categories</a>
+                        <a href="product.html" class="px-3 py-2 rounded-xl text-amber-300 bg-gray-800/50 transition">Products</a>
+                        <a href="cart.html" class="px-3 py-2 rounded-xl text-gray-300 hover:text-amber-300 hover:bg-gray-800/50 transition">Cart</a>
+                        <a href="order.html" class="px-3 py-2 rounded-xl text-gray-300 hover:text-amber-300 hover:bg-gray-800/50 transition">Orders</a>
+                        <a href="profile.html" class="px-3 py-2 rounded-xl text-gray-300 hover:text-amber-300 hover:bg-gray-800/50 transition">Profile</a>
+                    </nav>
+                    <div id="desktop-auth" class="flex items-center gap-2"></div>
+                    <a href="cart.html" class="relative text-amber-400 text-2xl hover:text-amber-300 transition p-1">
+                        <i class="fas fa-shopping-cart"></i>
+                        <span id="cartCount" class="absolute -top-1 -right-2 bg-gradient-to-br from-amber-400 to-yellow-500 text-gray-900 text-[10px] font-black rounded-full h-5 w-5 flex items-center justify-center shadow-lg">0</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Overlay + Mobile Sidebar -->
+<div id="overlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 hidden lg:hidden" onclick="closeSidebar()"></div>
+<aside id="sidebar" class="sidebar fixed top-0 left-0 h-full w-80 bg-gray-900/95 backdrop-blur-2xl z-50 transform -translate-x-full lg:hidden shadow-2xl border-r border-amber-500/20">
+    <div class="p-6 bg-gradient-to-br from-gray-900 via-gray-800 to-black flex justify-between items-center border-b border-amber-500/20">
+        <span class="font-serif font-black text-xl text-amber-400 tracking-wide">✦ Menu</span>
+        <button onclick="closeSidebar()" class="text-amber-400 text-2xl active:scale-90 transition-transform"><i class="fas fa-times"></i></button>
+    </div>
+    <nav class="p-5 space-y-1" id="mobile-sidebar-links">
+        <!-- filled dynamically -->
+    </nav>
+</aside>
+
+<!-- Loader -->
+<div id="loader" class="fixed inset-0 z-50 flex items-center justify-center" style="display:none;">
+    <div class="bg-gray-900/90 p-10 rounded-3xl border border-amber-500/30 backdrop-blur-2xl">
+        <div class="flex space-x-2 justify-center mb-4">
+            <div class="w-4 h-4 bg-amber-500 rounded-full animate-bounce"></div>
+            <div class="w-4 h-4 bg-yellow-500 rounded-full animate-bounce" style="animation-delay:0.15s"></div>
+            <div class="w-4 h-4 bg-amber-300 rounded-full animate-bounce" style="animation-delay:0.3s"></div>
+        </div>
+        <p class="text-gray-300 text-sm text-center">Loading…</p>
+    </div>
+</div>
+
+<!-- ========== MAIN CONTENT ========== -->
+<main class="flex-1 w-full px-4 py-6 lg:py-10 bg-gray-950 min-h-screen">
+    <div class="max-w-7xl mx-auto">
+        <h1 class="text-2xl lg:text-3xl font-serif font-black mb-8 text-amber-300 flex items-center gap-2" id="pageTitle">
+            <span class="w-1.5 h-6 lg:h-7 bg-gradient-to-b from-amber-400 to-yellow-500 rounded-full"></span>
+            All Products
+        </h1>
+
+        <!-- Sort Dropdown -->
+        <div class="flex gap-2 mb-8">
+            <select id="sortSelect" class="bg-gray-900 border border-amber-500/30 rounded-2xl px-4 py-2.5 text-sm lg:text-base text-gray-200 focus:ring-2 focus:ring-amber-400 focus:border-transparent shadow-sm" onchange="applySort()">
+                <option value="">✨ Sort By</option>
+                <option value="newest">Newest</option>
+                <option value="price_asc">Price: Low to High</option>
+                <option value="price_desc">Price: High to Low</option>
+            </select>
+        </div>
+
+        <!-- Product Grid -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6" id="productGrid">
+            <!-- Filled dynamically -->
+        </div>
+    </div>
+</main>
+
+<!-- Desktop Footer -->
+<footer class="hidden lg:block bg-gray-900/90 backdrop-blur-xl border-t border-amber-500/20 mt-auto">
+    <div class="max-w-7xl mx-auto px-6 py-10 grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div>
+            <h3 class="font-serif text-xl font-bold text-amber-400 mb-3">UpdatesAll</h3>
+            <p class="text-gray-400 text-sm leading-relaxed">Your trusted destination for premium products delivered fast.</p>
+        </div>
+        <div>
+            <h4 class="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4">Quick Links</h4>
+            <ul class="space-y-2 text-sm text-gray-400">
+                <li><a href="index.html" class="hover:text-amber-400 transition">Home</a></li>
+                <li><a href="about.html" class="hover:text-amber-400 transition">About</a></li>
+                <li><a href="terms.html" class="hover:text-amber-400 transition">Terms</a></li>
+                <li><a href="contact.html" class="hover:text-amber-400 transition">Contact</a></li>
+            </ul>
+        </div>
+        <div>
+            <h4 class="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4">Get In Touch</h4>
+            <ul class="space-y-2 text-sm text-gray-400">
+                <li class="flex items-center gap-2"><i class="fas fa-envelope text-amber-400"></i>support@updatesall.com</li>
+                <li class="flex items-center gap-2"><i class="fas fa-phone-alt text-amber-400"></i>+91-9101620936</li>
+            </ul>
+        </div>
+    </div>
+    <div class="border-t border-gray-800">
+        <div class="max-w-7xl mx-auto px-6 py-4 text-center text-sm text-gray-500"><p>&copy; 2026 UpdatesAll. All rights reserved.</p></div>
+    </div>
+</footer>
+
+<!-- Mobile Bottom Navigation -->
+<footer class="fixed bottom-3 left-3 right-3 z-30 lg:hidden">
+    <div class="bg-gray-900/90 backdrop-blur-2xl rounded-3xl shadow-2xl shadow-black/30 border border-amber-500/20 px-1 py-2">
+        <div class="flex justify-around items-center">
+            <a href="index.html" class="flex flex-col items-center py-2 px-3 rounded-2xl text-gray-500 hover:text-amber-400 transition-all active:scale-90">
+                <i class="fas fa-home text-xl"></i><span class="text-[10px] font-bold mt-1">Home</span>
+            </a>
+            <a href="category.html" class="flex flex-col items-center py-2 px-3 rounded-2xl text-gray-500 hover:text-amber-400 transition-all active:scale-90">
+                <i class="fas fa-th-large text-xl"></i><span class="text-[10px] font-bold mt-1">Categories</span>
+            </a>
+            <a href="cart.html" class="relative flex flex-col items-center py-2 px-3 rounded-2xl text-gray-500 hover:text-amber-400 transition-all active:scale-90">
+                <div class="relative">
+                    <i class="fas fa-shopping-cart text-xl"></i>
+                    <span id="cartCountMobile" class="absolute -top-2 -right-3 bg-gradient-to-br from-amber-400 to-yellow-500 text-gray-900 text-[10px] font-black rounded-full h-5 w-5 flex items-center justify-center shadow-lg">0</span>
+                </div>
+                <span class="text-[10px] font-bold mt-1">Cart</span>
+            </a>
+            <a href="profile.html" class="flex flex-col items-center py-2 px-3 rounded-2xl text-gray-500 hover:text-amber-400 transition-all active:scale-90">
+                <i class="fas fa-user text-xl"></i><span class="text-[10px] font-bold mt-1">Profile</span>
+            </a>
+        </div>
+    </div>
+</footer>
+
+<!-- Firebase & App Logic -->
+<script type="importmap">
+{
+    "imports": {
+        "firebase/app": "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js",
+        "firebase/auth": "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js",
+        "firebase/database": "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js"
+    }
+}
+</script>
+
+<script type="module">
+import { initializeApp } from 'firebase/app';
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
+import { getDatabase, ref, get } from 'firebase/database';
+
+// ---------- FIREBASE CONFIG (PLACEHOLDER) ----------
+const firebaseConfig = {
+    apiKey: "AIzaSyBIrOovwfq96b8zeGPx51NaqcCvDkQt_tE",
+    authDomain: "shopping-a9708.firebaseapp.com",
+    databaseURL: "https://shopping-a9708-default-rtdb.firebaseio.com",
+    projectId: "shopping-a9708",
+    storageBucket: "shopping-a9708.firebasestorage.app",
+    messagingSenderId: "954509482293",
+    appId: "1:954509482293:web:c75432784cfe8374bdd47c"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+const googleProvider = new GoogleAuthProvider();
+
+let currentUser = null;
+const $ = (id) => document.getElementById(id);
+
+// Loader functions
+function showLoader() { $('loader').style.display = 'flex'; }
+function hideLoader() { $('loader').style.display = 'none'; }
+
+// ---------- CART BADGE ----------
+function updateCartBadge(count) {
+    const badges = document.querySelectorAll('#cartCount, #cartCountMobile');
+    badges.forEach(b => { if (b) b.textContent = count || '0'; });
+}
+async function updateCartBadgeFromFirebase() {
+    if (!currentUser) { updateCartBadge(0); return; }
+    const snap = await get(ref(db, `users/${currentUser.uid}/cart`));
+    let count = 0;
+    if (snap.exists()) count = Object.keys(snap.val()).length;
+    updateCartBadge(count);
+}
+
+// ---------- AUTH UI ----------
+function renderAuthUI(user) {
+    currentUser = user;
+    const desktopAuth = $('desktop-auth');
+    const mobileLinks = $('mobile-sidebar-links');
+
+    const commonLinks = `
+        <a href="index.html" class="flex items-center gap-4 px-4 py-3.5 rounded-2xl text-gray-300 hover:text-amber-300 hover:bg-gray-800/50 transition-all font-medium"><span class="w-9 h-9 flex items-center justify-center rounded-xl bg-amber-500/10 text-amber-400"><i class="fas fa-home"></i></span> Home</a>
+        <a href="category.html" class="flex items-center gap-4 px-4 py-3.5 rounded-2xl text-gray-300 hover:text-amber-300 hover:bg-gray-800/50 transition-all font-medium"><span class="w-9 h-9 flex items-center justify-center rounded-xl bg-amber-500/10 text-yellow-400"><i class="fas fa-th-large"></i></span> Categories</a>
+        <a href="product.html" class="flex items-center gap-4 px-4 py-3.5 rounded-2xl text-gray-300 hover:text-amber-300 hover:bg-gray-800/50 transition-all font-medium"><span class="w-9 h-9 flex items-center justify-center rounded-xl bg-amber-500/10 text-amber-400"><i class="fas fa-th-large"></i></span> Products</a>
+        <a href="cart.html" class="flex items-center gap-4 px-4 py-3.5 rounded-2xl text-gray-300 hover:text-amber-300 hover:bg-gray-800/50 transition-all font-medium"><span class="w-9 h-9 flex items-center justify-center rounded-xl bg-amber-500/10 text-amber-300"><i class="fas fa-shopping-cart"></i></span> Cart</a>
+        <a href="order.html" class="flex items-center gap-4 px-4 py-3.5 rounded-2xl text-gray-300 hover:text-amber-300 hover:bg-gray-800/50 transition-all font-medium"><span class="w-9 h-9 flex items-center justify-center rounded-xl bg-amber-500/10 text-amber-500"><i class="fas fa-box"></i></span> Orders</a>
+        <a href="profile.html" class="flex items-center gap-4 px-4 py-3.5 rounded-2xl text-gray-300 hover:text-amber-300 hover:bg-gray-800/50 transition-all font-medium"><span class="w-9 h-9 flex items-center justify-center rounded-xl bg-amber-500/10 text-amber-400"><i class="fas fa-user"></i></span> Profile</a>
+        <hr class="my-5 border-gray-700">
+        <a href="about.html" class="flex items-center gap-4 px-4 py-3.5 rounded-2xl text-gray-300 hover:text-amber-300 hover:bg-gray-800/50 transition-all font-medium"><span class="w-9 h-9 flex items-center justify-center rounded-xl bg-amber-500/10 text-amber-400"><i class="fas fa-info-circle"></i></span> About</a>
+        <a href="terms.html" class="flex items-center gap-4 px-4 py-3.5 rounded-2xl text-gray-300 hover:text-amber-300 hover:bg-gray-800/50 transition-all font-medium"><span class="w-9 h-9 flex items-center justify-center rounded-xl bg-amber-500/10 text-amber-400"><i class="fas fa-file-contract"></i></span> Terms</a>
+        <a href="contact.html" class="flex items-center gap-4 px-4 py-3.5 rounded-2xl text-gray-300 hover:text-amber-300 hover:bg-gray-800/50 transition-all font-medium"><span class="w-9 h-9 flex items-center justify-center rounded-xl bg-amber-500/10 text-amber-400"><i class="fas fa-envelope"></i></span> Contact</a>
+    `;
+
+    if (user) {
+        desktopAuth.innerHTML = `
+            <span class="text-amber-400 text-sm mr-2 hidden xl:inline">${user.email}</span>
+            <button id="btn-logout" class="text-red-400 hover:text-red-300 text-xs font-semibold ml-2">Logout</button>`;
+        $('btn-logout')?.addEventListener('click', async () => { await signOut(auth); });
+
+        if (mobileLinks) {
+            mobileLinks.innerHTML = commonLinks + `
+                <hr class="my-5 border-gray-700">
+                <div class="px-4 text-gray-400 text-sm">${user.email}</div>
+                <button id="btn-logout-mobile" class="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-red-400 hover:bg-red-500/10 transition-all font-medium"><span class="w-9 h-9 flex items-center justify-center rounded-xl bg-red-500/10"><i class="fas fa-sign-out-alt"></i></span> Logout</button>`;
+            $('btn-logout-mobile')?.addEventListener('click', async () => { await signOut(auth); });
+        }
+    } else {
+        desktopAuth.innerHTML = `<a href="login.html" class="px-3 py-2 rounded-xl bg-gray-800 text-gray-300 hover:text-amber-300 transition font-medium">Login</a>`;
+        if (mobileLinks) {
+            mobileLinks.innerHTML = commonLinks + `
+                <hr class="my-5 border-gray-700">
+                <a href="login.html" class="flex items-center gap-4 px-4 py-3.5 rounded-2xl text-gray-300 hover:text-amber-300 hover:bg-gray-800/50 transition-all font-medium"><span class="w-9 h-9 flex items-center justify-center rounded-xl bg-gray-800"><i class="fas fa-sign-in-alt"></i></span> Login</a>`;
+        }
+    }
+    updateCartBadgeFromFirebase();
+}
+
+onAuthStateChanged(auth, (user) => {
+    renderAuthUI(user);
+    loadProducts(); // reload on auth change if needed
+});
+
+// ---------- PRODUCT LOADING ----------
+function getUrlParams() {
+    const params = new URLSearchParams(window.location.search);
+    return {
+        cat: params.get('cat') || '',
+        subcat: params.get('subcat') || '',
+        sort: params.get('sort') || 'newest'
+    };
+}
+
+function applySort() {
+    const sort = $('sortSelect').value;
+    const params = new URLSearchParams(window.location.search);
+    if (sort) params.set('sort', sort);
+    else params.delete('sort');
+    window.location.search = params.toString();
+}
+
+async function loadProducts() {
+    showLoader();
+    try {
+        const { cat, subcat, sort } = getUrlParams();
+        // Set sort dropdown
+        $('sortSelect').value = sort || 'newest';
+
+        // Fetch products
+        const productsSnap = await get(ref(db, 'products'));
+        let products = [];
+        if (productsSnap.exists()) {
+            const data = productsSnap.val();
+            products = Object.entries(data).map(([id, p]) => ({ id, ...p }));
+        }
+
+        // Filter by category or subcategory
+        if (cat) {
+            products = products.filter(p => p.cat_id === cat);
+            // Update page title with category name if available
+            const catSnap = await get(ref(db, `categories/${cat}`));
+            if (catSnap.exists()) {
+                $('pageTitle').innerHTML = `<span class="w-1.5 h-6 lg:h-7 bg-gradient-to-b from-amber-400 to-yellow-500 rounded-full"></span> ${catSnap.val().name}`;
+            }
+        }
+        if (subcat) {
+            products = products.filter(p => p.subcat_id === subcat);
+            const subSnap = await get(ref(db, `subcategories/${subcat}`));
+            if (subSnap.exists()) {
+                $('pageTitle').innerHTML = `<span class="w-1.5 h-6 lg:h-7 bg-gradient-to-b from-amber-400 to-yellow-500 rounded-full"></span> ${subSnap.val().name}`;
+            }
+        }
+
+        // Sort
+        if (sort === 'price_asc') {
+            products.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+        } else if (sort === 'price_desc') {
+            products.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
+        } else { // newest – by date field or key descending
+            products.sort((a, b) => {
+                const aDate = a.date || (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+                const bDate = b.date || (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+                if (aDate && bDate) return bDate - aDate;
+                // fallback to key order (push keys are lexicographically ascending over time)
+                return b.id.localeCompare(a.id);
+            });
+        }
+
+        renderProductGrid(products);
+    } catch (err) {
+        console.error(err);
+        $('productGrid').innerHTML = '<p class="text-red-400 col-span-full text-center py-10">Error loading products.</p>';
+    } finally {
+        hideLoader();
+    }
+}
+
+function renderProductGrid(products) {
+    const grid = $('productGrid');
+    if (products.length === 0) {
+        grid.innerHTML = '<p class="text-gray-500 col-span-full text-center py-10">No products found.</p>';
+        return;
+    }
+    grid.innerHTML = products.map(p => `
+        <a href="product_detail.html?id=${p.id}" class="bg-gray-900 border border-amber-500/20 rounded-3xl p-3 lg:p-4 flex flex-col group transition-all duration-300 hover:border-amber-400/50 hover:shadow-[0_0_20px_rgba(245,158,11,0.15)] card-hover">
+            <div class="w-full h-40 lg:h-52 rounded-2xl overflow-hidden mb-3 border border-amber-500/30">
+                <img src="${p.image_url || 'https://via.placeholder.com/300/1f2937/f5a623?text=No+Image'}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" onerror="this.src='https://via.placeholder.com/300/1f2937/f5a623?text=No+Image'">
+            </div>
+            <h3 class="text-sm lg:text-base font-bold text-gray-200 truncate">${p.name}</h3>
+            <div class="flex items-baseline gap-1 mt-1">
+                <span class="text-amber-400 font-extrabold text-lg lg:text-xl">₹${parseFloat(p.price).toFixed(2)}</span>
+            </div>
+            ${p.mrp ? `<span class="text-gray-500 text-xs line-through">₹${parseFloat(p.mrp).toFixed(2)}</span>` : ''}
+        </a>
+    `).join('');
+}
+
+// ---------- SIDEBAR ----------
+window.openSidebar = function() {
+    $('sidebar').classList.add('open');
+    $('overlay').classList.remove('hidden');
+};
+window.closeSidebar = function() {
+    $('sidebar').classList.remove('open');
+    $('overlay').classList.add('hidden');
+};
+$('menuBtnMobile')?.addEventListener('click', openSidebar);
+$('searchToggleMobile')?.addEventListener('click', () => {
+    $('searchBarMobile').classList.toggle('hidden');
+    if (!$('searchBarMobile').classList.contains('hidden')) $('searchInputMobile').focus();
+});
+
+// Initial load
+loadProducts();
+</script>
+</body>
+</html>
